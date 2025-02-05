@@ -40,23 +40,50 @@ if (!keystore[0]) {
   throw new Error('No keys found in Sui keystore');
 }
 
-// Create keypair from the first private key
-const privateKeyBytes = fromB64(keystore[0]);
-// Ed25519 private key is 32 bytes, remove the first byte if it's 33 bytes
-const privateKey = privateKeyBytes.length === 33 ? privateKeyBytes.slice(1) : privateKeyBytes;
-const keypair = Ed25519Keypair.fromSecretKey(privateKey);
+// Try both keys to find the one matching our active address
+let keypair: Ed25519Keypair | null = null;
+
+for (const key of keystore) {
+  try {
+    const privateKeyBytes = fromB64(key);
+    const privateKey = privateKeyBytes.length === 33 ? privateKeyBytes.slice(1) : privateKeyBytes;
+    const kp = Ed25519Keypair.fromSecretKey(privateKey);
+    if (kp.toSuiAddress() === activeAddress) {
+      console.log('Found matching keypair for active address');
+      keypair = kp;
+      break;
+    }
+  } catch (error) {
+    console.log('Error with key:', error);
+  }
+}
+
+if (!keypair) {
+  throw new Error('No matching keypair found for active address');
+}
 
 // Initialize Sui client
 const client = new SuiClient({ url: getFullnodeUrl('mainnet') });
 
 
 async function main() {
+  // Get available gas coins
+  const { data: gasData } = await client.getCoins({
+    owner: keypair.toSuiAddress(),
+    coinType: '0x2::sui::SUI',
+  });
+
+  if (gasData.length === 0) {
+    throw new Error('No SUI coins found in wallet');
+  }
+
+  const gasCoin = gasData[0].coinObjectId;
   try {
     console.log('Starting pool initialization...');
 
     // Create transaction block for minting AIXCOM tokens
     const mintTx = new TransactionBlock();
-    const mintAmount = 1000000 * Math.pow(10, Number(VITE_TOKEN_DECIMALS)); // Mint 1M AIXCOM tokens
+    const mintAmount = 1000 * Math.pow(10, Number(VITE_TOKEN_DECIMALS)); // Mint 1000 AIXCOM tokens
 
     // Mint AIXCOM tokens
     console.log('Minting AIXCOM tokens...');
@@ -89,9 +116,7 @@ async function main() {
 
     // Create transaction block for adding liquidity
     const liquidityTx = new TransactionBlock();
-    // TODO: what should be the amount?
-    const suiAmount = 0; //1 * 1e9; // 1 SUI
-    const [coin] = liquidityTx.splitCoins(liquidityTx.gas, [liquidityTx.pure(suiAmount)]);
+    const suiAmount = 0.1 * 1e9; // 0.1 SUI
 
     // Add initial liquidity
     console.log('Adding initial liquidity to pool...');
@@ -99,7 +124,7 @@ async function main() {
       target: `${VITE_AIXCOM_PACKAGE_ID}::swap::add_liquidity`,
       arguments: [
         liquidityTx.object(VITE_SWAP_POOL_ID!),
-        coin,
+        liquidityTx.splitCoins(liquidityTx.gas, [liquidityTx.pure(suiAmount)])[0],
         liquidityTx.object(mintedCoinId),
       ],
     });
