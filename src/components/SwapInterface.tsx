@@ -13,19 +13,29 @@ import {
   StatLabel,
   StatNumber,
   StatGroup,
+  Divider,
+  HStack,
+  Tooltip,
+  IconButton,
+  Spinner,
 } from '@chakra-ui/react';
+import { RepeatIcon } from '@chakra-ui/icons';
 import { ConnectButton, useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { AIXCOM_PACKAGE_ID, TOKEN_DECIMALS, TOKENS_PER_SUI, SWAP_POOL_ID } from '../constants/token';
+import { useSwapPool } from '../hooks/useSwapPool';
 
 export function SwapInterface() {
   const currentAccount = useCurrentAccount();
   const suiClient = useSuiClient();
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const { reserves, isLoading: isLoadingPool, calculateSuiToAixcom, refreshReserves } = useSwapPool();
+  
   const [suiAmount, setSuiAmount] = useState('0.01');
   const [aixcomAmount, setAixcomAmount] = useState('1000');
   const [balance, setBalance] = useState({ sui: '0', aixcom: '0' });
   const [isSwapping, setIsSwapping] = useState(false);
   const [slippage, setSlippage] = useState(0.5); // 0.5% slippage tolerance
+  const [priceImpact, setPriceImpact] = useState(0);
   const toast = useToast();
 
   const updateBalance = async () => {
@@ -117,7 +127,16 @@ export function SwapInterface() {
 
   const handleSuiInputChange = (value: string) => {
     setSuiAmount(value);
-    setAixcomAmount((Number(value) * TOKENS_PER_SUI).toString());
+    const numValue = Number(value);
+    
+    if (numValue > 0) {
+      const { outputAmount, priceImpact: impact } = calculateSuiToAixcom(numValue);
+      setAixcomAmount(outputAmount.toFixed(2));
+      setPriceImpact(impact);
+    } else {
+      setAixcomAmount('0');
+      setPriceImpact(0);
+    }
   };
 
   return (
@@ -144,6 +163,24 @@ export function SwapInterface() {
             <StatNumber color="white">{balance.aixcom} AIXCOM</StatNumber>
           </Stat>
         </StatGroup>
+
+        <Box width="100%" bg="whiteAlpha.100" p={4} borderRadius="xl">
+          <Flex justify="space-between" align="center" mb={2}>
+            <Text color="whiteAlpha.700">Pool Liquidity</Text>
+            <IconButton
+              aria-label="Refresh pool data"
+              icon={isLoadingPool ? <Spinner size="sm" /> : <RepeatIcon />}
+              size="sm"
+              variant="ghost"
+              onClick={refreshReserves}
+              isDisabled={isLoadingPool}
+            />
+          </Flex>
+          <HStack spacing={4} justify="space-between">
+            <Text color="white">{reserves.suiReserve.toFixed(2)} SUI</Text>
+            <Text color="white">{reserves.aixcomReserve.toFixed(2)} AIXCOM</Text>
+          </HStack>
+        </Box>
 
         <Box width="100%">
           <Text mb={2} color="whiteAlpha.700">You pay</Text>
@@ -177,6 +214,25 @@ export function SwapInterface() {
             />
             <Text ml={2} alignSelf="center" color="white">AIXCOM</Text>
           </Flex>
+        </Box>
+
+        <Box width="100%" bg="whiteAlpha.50" p={4} borderRadius="xl">
+          <VStack spacing={2} align="stretch">
+            <Flex justify="space-between">
+              <Text color="whiteAlpha.700">Price Impact</Text>
+              <Tooltip label="The difference between the current market price and the price you'll get due to the size of your trade.">
+                <Text
+                  color={priceImpact > 5 ? 'red.300' : priceImpact > 2 ? 'yellow.300' : 'green.300'}
+                >
+                  {priceImpact.toFixed(2)}%
+                </Text>
+              </Tooltip>
+            </Flex>
+            <Flex justify="space-between">
+              <Text color="whiteAlpha.700">Slippage Tolerance</Text>
+              <Text color="white">{slippage}%</Text>
+            </Flex>
+          </VStack>
         </Box>
 
         <Box width="100%">
