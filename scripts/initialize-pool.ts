@@ -81,18 +81,17 @@ async function main() {
   try {
     console.log('Starting pool initialization...');
 
-    // Create transaction block for minting AIXCOM tokens
+    // First, mint AIXCOM tokens
     const mintTx = new TransactionBlock();
     const mintAmount = 1000 * Math.pow(10, Number(VITE_TOKEN_DECIMALS)); // Mint 1000 AIXCOM tokens
 
-    // Mint AIXCOM tokens
     console.log('Minting AIXCOM tokens...');
     mintTx.moveCall({
       target: `${VITE_AIXCOM_PACKAGE_ID}::aixcom::mint`,
       arguments: [
         mintTx.object(VITE_AIXCOM_TREASURY_CAP!),
         mintTx.pure(mintAmount),
-        mintTx.pure(VITE_WALLET_ADDRESS!),
+        mintTx.pure(keypair.toSuiAddress()),
       ],
     });
 
@@ -108,29 +107,57 @@ async function main() {
 
     console.log('Mint transaction successful:', mintResult.digest);
 
+    console.log('Mint transaction effects:', JSON.stringify(mintResult.effects, null, 2));
+
     // Get the minted coin from transaction effects
     const mintedCoinId = mintResult.effects?.created?.[0]?.reference?.objectId;
     if (!mintedCoinId) {
       throw new Error('Failed to get minted coin ID');
     }
 
-    // Create transaction block for adding liquidity
+    console.log('Found minted coin ID:', mintedCoinId);
+
+    // Wait for a moment to ensure the minted coin is available
+    console.log('Waiting for coin to be available...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Verify the minted coin exists
+    console.log('Verifying minted coin...');
+    const mintedCoin = await client.getObject({
+      id: mintedCoinId,
+      options: { showContent: true },
+    });
+
+    console.log('Minted coin details:', JSON.stringify(mintedCoin, null, 2));
+
+    if (!mintedCoin) {
+      throw new Error('Failed to verify minted coin');
+    }
+
+    console.log('Minted coin verified:', mintedCoinId);
+    console.log('Pool ID:', VITE_SWAP_POOL_ID);
+
+    // Now add liquidity
     const liquidityTx = new TransactionBlock();
     const suiAmount = 0.1 * 1e9; // 0.1 SUI
+    console.log('SUI amount for liquidity:', suiAmount);
 
-    // Add initial liquidity
+    const [suiCoin] = liquidityTx.splitCoins(liquidityTx.gas, [liquidityTx.pure(suiAmount)]);
+
     console.log('Adding initial liquidity to pool...');
     liquidityTx.moveCall({
       target: `${VITE_AIXCOM_PACKAGE_ID}::swap::add_liquidity`,
       arguments: [
         liquidityTx.object(VITE_SWAP_POOL_ID!),
-        liquidityTx.splitCoins(liquidityTx.gas, [liquidityTx.pure(suiAmount)])[0],
+        suiCoin,
         liquidityTx.object(mintedCoinId),
       ],
     });
 
+    console.log('Transaction prepared, executing...');
+
     // Execute liquidity transaction
-    const liquidityResult = await client.signAndExecuteTransactionBlock({
+    const result = await client.signAndExecuteTransactionBlock({
       signer: keypair,
       transactionBlock: liquidityTx,
       options: {
@@ -139,7 +166,7 @@ async function main() {
       },
     });
 
-    console.log('Liquidity addition successful:', liquidityResult.digest);
+    console.log('Transaction successful:', result.digest);
     console.log('Pool initialization complete!');
 
   } catch (error) {
