@@ -1,0 +1,9 @@
+export const AIXCOM_PACKAGE_ID = '0xaacfbceb2ba8b8b9b216436640bb5488e1c12c9e3502f85551f472807cca3a83';
+export const AIXCOM_TREASURY_CAP = '0xb7f896e6ac0ac2edf31d36729e51dcd120dc2a591f8ee807b8a1148733d0be14';
+export const AIXCOM_METADATA = '0x9161f53cd75a653bcfba3e21ee7ae2ec6cca00ba222e20c6552ce12832146002';
+
+// Swap contract constants
+export const SWAP_POOL_ID = '0x21dbfc56998bd4f9ab6701385218cfe78295b67a804b4d5394f1c70239c07b9c';
+
+export const TOKEN_DECIMALS = 9;
+export const TOKENS_PER_SUI = 100000; // 1000 AIXCOM per 0.01 SUI
