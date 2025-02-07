@@ -13,12 +13,12 @@ import {
   Flex,
 } from '@chakra-ui/react';
 import { FiTwitter } from 'react-icons/fi';
-import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit';
+import { ConnectButton, useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
 import { SwapModal } from './SwapModal';
+import { RegisterModal } from './RegisterModal';
 import { TelegramRegistration } from './TelegramRegistration';
 import { useState, useEffect } from 'react';
-import { useSuiClient } from '@mysten/dapp-kit';
-import { checkAixcomBalance } from '../utils/tokenUtils';
+import { checkAixcomBalance, getAixcomBalance } from '../utils/tokenUtils';
 
 const Feature = ({ icon, title, text }: { icon: any; title: string; text: string }) => {
   return (
@@ -42,10 +42,43 @@ const Feature = ({ icon, title, text }: { icon: any; title: string; text: string
 };
 
 export function LandingPage() {
+  const currentAccount = useCurrentAccount();
+  const suiClient = useSuiClient();
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [hasEnoughTokens, setHasEnoughTokens] = useState(false);
+  const [aixcomBalance, setAixcomBalance] = useState<number>(0);
+  
+  useEffect(() => {
+    async function checkBalance() {
+      if (!currentAccount?.address) {
+        setHasEnoughTokens(false);
+        return;
+      }
+
+      const packageId = process.env.VITE_AIXCOM_PACKAGE_ID;
+      console.log('Package ID:', packageId); // Debug log
+      const coinType = `${packageId}::aixcom::AIXCOM`;
+      try {
+        const balance = await getAixcomBalance(suiClient, currentAccount.address, coinType);
+        console.log('Current AIXCOM balance:', balance); // Debug log
+        setAixcomBalance(balance);
+        setHasEnoughTokens(balance >= 10);
+      } catch (error) {
+        console.error('Error fetching balance:', error);
+        setAixcomBalance(0);
+        setHasEnoughTokens(false);
+      }
+    }
+
+    checkBalance();
+  }, [currentAccount, suiClient]);
   
   const handleOpenSwapModal = () => setIsSwapModalOpen(true);
   const handleCloseSwapModal = () => setIsSwapModalOpen(false);
+  
+  const handleOpenRegisterModal = () => setIsRegisterModalOpen(true);
+  const handleCloseRegisterModal = () => setIsRegisterModalOpen(false);
 
   return (
     <Box
@@ -107,9 +140,10 @@ export function LandingPage() {
               borderRadius="md"
               border="2px solid"
               borderColor="cyan.400"
-              disabled
+              onClick={handleOpenRegisterModal}
+              isDisabled={!hasEnoughTokens || !currentAccount}
             >
-              JOIN (SOL / EVM)
+              REGISTER
             </Button>
             <Button
               size="lg"
@@ -127,15 +161,24 @@ export function LandingPage() {
             </Button>
           </HStack>
 
+          {/* AIXCOM Balance */}
+          {currentAccount && (
+            <Text color="white" fontSize="sm" textAlign="center">
+              Your Balance: <Text as="span" color="cyan.400" fontWeight="bold">{aixcomBalance.toFixed(2)} AIXCOM</Text>
+            </Text>
+          )}
+
+          {/* Registration Info Message */}
+          {!hasEnoughTokens && currentAccount && (
+            <Text color="yellow.400" fontSize="sm" textAlign="center" maxW="md">
+              You need at least 10 AIXCOM tokens to register. Click "GET AIXCOM" to purchase tokens.
+            </Text>
+          )}
+
           {/* Counter Text */}
           <Text color="gray.400" fontSize="lg" pt={4}>
             <Box as="span" color="pink.400" display="inline-block" mr={2}>●</Box>
             1,281,316 Printooors have already aped
-          </Text>
-
-          {/* Subtext */}
-          <Text color="gray.500" fontSize="lg">
-            Join for early access, boosted points, and community airdrop!
           </Text>
 
           {/* Social Links Section */}
@@ -158,6 +201,7 @@ export function LandingPage() {
 
           {/* Swap Modal */}
           <SwapModal isOpen={isSwapModalOpen} onClose={handleCloseSwapModal} />
+          <RegisterModal isOpen={isRegisterModalOpen} onClose={handleCloseRegisterModal} />
         </VStack>
       </Container>
     </Box>
