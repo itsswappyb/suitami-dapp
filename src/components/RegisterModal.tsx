@@ -14,7 +14,8 @@ import {
   useToast,
 } from '@chakra-ui/react';
 import { useCurrentAccount } from '@mysten/dapp-kit';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { registerWallet, getRegistration } from '../services/registrationService';
 
 interface RegisterModalProps {
   isOpen: boolean;
@@ -24,8 +25,30 @@ interface RegisterModalProps {
 export function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
   const [telegramHandle, setTelegramHandle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
   const currentAccount = useCurrentAccount();
   const toast = useToast();
+
+  useEffect(() => {
+    async function checkRegistration() {
+      if (!currentAccount?.address) return;
+
+      try {
+        const registration = await getRegistration(currentAccount.address);
+        if (registration) {
+          setIsRegistered(true);
+          setTelegramHandle(registration.telegramHandle);
+        } else {
+          setIsRegistered(false);
+          setTelegramHandle('');
+        }
+      } catch (error) {
+        console.error('Error checking registration:', error);
+      }
+    }
+
+    checkRegistration();
+  }, [currentAccount]);
 
   const handleRegister = async () => {
     if (!currentAccount?.address) {
@@ -63,12 +86,8 @@ export function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
 
     setIsLoading(true);
     try {
-      // TODO: Implement the actual registration logic here
-      // This would involve calling your backend API to store the wallet-telegram mapping
-      console.log('Registering:', {
-        walletAddress: currentAccount.address,
-        telegramHandle,
-      });
+      await registerWallet(currentAccount.address, telegramHandle);
+      setIsRegistered(true);
 
       toast({
         title: 'Success',

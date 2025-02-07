@@ -19,6 +19,7 @@ import { RegisterModal } from './RegisterModal';
 import { TelegramRegistration } from './TelegramRegistration';
 import { useState, useEffect } from 'react';
 import { checkAixcomBalance, getAixcomBalance } from '../utils/tokenUtils';
+import { getRegistrationCount } from '../services/registrationService';
 
 const Feature = ({ icon, title, text }: { icon: any; title: string; text: string }) => {
   return (
@@ -48,7 +49,21 @@ export function LandingPage() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [hasEnoughTokens, setHasEnoughTokens] = useState(false);
   const [aixcomBalance, setAixcomBalance] = useState<number>(0);
+  const [registrationCount, setRegistrationCount] = useState<number>(0);
   
+  // Fetch registration count
+  useEffect(() => {
+    async function fetchCount() {
+      const count = await getRegistrationCount();
+      setRegistrationCount(count);
+    }
+    fetchCount();
+
+    // Refresh count every minute
+    const interval = setInterval(fetchCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     async function checkBalance() {
       if (!currentAccount?.address) {
@@ -56,7 +71,7 @@ export function LandingPage() {
         return;
       }
 
-      const packageId = process.env.VITE_AIXCOM_PACKAGE_ID;
+      const packageId = import.meta.env.VITE_AIXCOM_PACKAGE_ID;
       console.log('Package ID:', packageId); // Debug log
       const coinType = `${packageId}::aixcom::AIXCOM`;
       try {
@@ -178,7 +193,7 @@ export function LandingPage() {
           {/* Counter Text */}
           <Text color="gray.400" fontSize="lg" pt={4}>
             <Box as="span" color="pink.400" display="inline-block" mr={2}>●</Box>
-            1,281,316 Printooors have already aped
+            {registrationCount.toLocaleString()} Suitamers have already joined
           </Text>
 
           {/* Social Links Section */}

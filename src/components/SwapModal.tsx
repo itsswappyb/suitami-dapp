@@ -11,9 +11,9 @@ import {
   Box,
   useToast,
 } from '@chakra-ui/react';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { useState } from 'react';
-import { handleFixedRateSwap } from '../utils/swapUtils';
+import { createSwapTransaction } from '../utils/swapUtils';
 
 interface SwapModalProps {
   isOpen: boolean;
@@ -24,6 +24,8 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
   const currentAccount = useCurrentAccount();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
+
+  const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
 
   const handleSwap = async () => {
     if (!currentAccount?.address) {
@@ -39,23 +41,61 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
 
     setIsLoading(true);
     try {
-      await handleFixedRateSwap(currentAccount.address);
-      toast({
-        title: 'Success',
-        description: 'Successfully purchased AIXCOM tokens!',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-      onClose();
+      const tx = createSwapTransaction(currentAccount.address);
+      
+      // const result = await signAndExecute({
+      //   transaction,
+      //   options: {
+      //     showEffects: true,
+      //     showEvents: true,
+      //   },
+      // });
+
+      // console.log('Transaction result:', result);
+      
+      // toast({
+      //   title: 'Success',
+      //   description: 'Successfully purchased AIXCOM tokens!',
+      //   status: 'success',
+      //   duration: 3000,
+      //   isClosable: true,
+      // });
+      // onClose();
+      signAndExecuteTransaction(
+        {
+          transaction: tx,
+          options: {
+            showEffects: true,
+            showEvents: true,
+          },
+        },
+        {
+          onSuccess: async (result) => {
+            console.log('Transaction success:', result);
+            onClose();
+            toast({
+              title: 'Success',
+              description: 'Successfully purchased AIXCOM tokens!',
+              status: 'success',
+              duration: 3000,
+              isClosable: true,
+            });
+          },
+          onError: (error) => {
+            console.log('Transaction Error:', error);
+            toast({
+              title: 'Error',
+              description: error instanceof Error ? error.message : 'Failed to swap tokens',
+              status: 'error',
+              duration: 3000,
+              isClosable: true,
+            });
+            onClose();
+          }
+        }
+      );
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to swap tokens',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
+      console.error('Swap error:', error);
     } finally {
       setIsLoading(false);
     }
