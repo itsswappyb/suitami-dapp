@@ -11,4 +11,4 @@ export const TOKEN_DECIMALS = Number(import.meta.env.VITE_TOKEN_DECIMALS);
 export const TOKENS_PER_SUI = Number(import.meta.env.VITE_TOKENS_PER_SUI);
 
 // Wallet
-export const WALLET_ADDRESS = import.meta.env.VITE_WALLET_ADDRESS;00000; // 1000 AIXCOM per 0.01 SUI
+export const WALLET_ADDRESS = import.meta.env.VITE_WALLET_ADDRESS;

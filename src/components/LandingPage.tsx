@@ -10,6 +10,7 @@ import {
   useColorModeValue,
 } from '@chakra-ui/react';
 import { FiLock, FiTrendingUp, FiZap } from 'react-icons/fi';
+import { ConnectButton } from '@mysten/dapp-kit';
 import { SwapInterface } from './SwapInterface';
 
 const Feature = ({ icon, title, text }: { icon: any; title: string; text: string }) => {
@@ -39,7 +40,11 @@ export function LandingPage() {
       minH="100vh"
       bg="gray.900"
       backgroundImage="radial-gradient(circle at 50% 50%, rgba(20, 80, 255, 0.15) 0%, rgba(0, 0, 0, 0) 70%)"
+      position="relative"
     >
+      <Box position="absolute" top={4} right={4}>
+        <ConnectButton />
+      </Box>
       <Container maxW="container.xl" pt={20} pb={20}>
         <VStack spacing={16}>
           {/* Hero Section */}

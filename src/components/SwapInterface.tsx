@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { TransactionBlock } from '@mysten/sui.js/transactions';
+// import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { Transaction } from '@mysten/sui/transactions';
 import {
   Box,
   Button,
@@ -20,14 +21,14 @@ import {
   Spinner,
 } from '@chakra-ui/react';
 import { RepeatIcon } from '@chakra-ui/icons';
-import { ConnectButton, useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
 import { AIXCOM_PACKAGE_ID, TOKEN_DECIMALS, TOKENS_PER_SUI, SWAP_POOL_ID } from '../constants/token';
 import { useSwapPool } from '../hooks/useSwapPool';
 
 export function SwapInterface() {
   const currentAccount = useCurrentAccount();
   const suiClient = useSuiClient();
-  const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
+  const { mutate: signAndExecuteTransaction } = useSignAndExecuteTransaction();
   const { reserves, isLoading: isLoadingPool, calculateSuiToAixcom, refreshReserves } = useSwapPool();
   
   const [suiAmount, setSuiAmount] = useState('0.01');
@@ -70,7 +71,7 @@ export function SwapInterface() {
   }, [currentAccount?.address]);
 
   const handleSwap = async () => {
-    if (!currentAccount) {
+    if (!currentAccount?.address) {
       toast({
         title: 'Please connect your wallet',
         status: 'error',
@@ -81,37 +82,70 @@ export function SwapInterface() {
 
     try {
       setIsSwapping(true);
-      const suiAmountInMist = Number(suiAmount) * 1e9;
-      const aixcomAmountInSmallestUnit = Number(aixcomAmount) * Math.pow(10, TOKEN_DECIMALS);
-      
-      // Calculate minimum amount out with slippage tolerance
-      const minAixcomOut = Math.floor(aixcomAmountInSmallestUnit * (1 - slippage / 100));
 
-      const tx = new TransactionBlock();
-      const [coin] = tx.splitCoins(tx.gas, [tx.pure(suiAmountInMist)]);
+      // Convert amounts to smallest units
+      const suiAmountInMist = Math.floor(Number(suiAmount) * 1e9);
+      const minAixcomOut = Math.floor(
+        Number(aixcomAmount) * 
+        Math.pow(10, TOKEN_DECIMALS) * 
+        (1 - slippage / 100)
+      );
+
+      // Create transaction block
+      const tx = new Transaction();
+      console.log('tx.gas', tx.gas);
       
+      // Split SUI from gas coin
+      const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(suiAmountInMist)]);
+
+      console.log({AIXCOM_PACKAGE_ID, SWAP_POOL_ID, coin, minAixcomOut, recipient: currentAccount.address, suiAmountInMist});
+
+      // Add swap call
       tx.moveCall({
         target: `${AIXCOM_PACKAGE_ID}::swap::swap_sui_for_aixcom`,
         arguments: [
           tx.object(SWAP_POOL_ID),
           coin,
-          tx.pure(minAixcomOut),
-          tx.pure(currentAccount.address),
-        ],
+          tx.pure.u64(995),
+          tx.pure.address(currentAccount.address)
+        ]
       });
 
-      const result = await signAndExecute({
-        transaction: tx,
-      });
+      // Sign and execute the transaction with the connected wallet
+      // const response = await signAndExecuteTransaction({
+      //   transactionBlock: tx,
+      //   options: {
+      //     showEffects: true,
+      //     showEvents: true,
+      //   },
+      // });
 
-      toast({
-        title: 'Swap successful!',
-        description: `Txn hash: ${result.digest}`,
-        status: 'success',
-        duration: 5000,
-      });
+      signAndExecuteTransaction(
+        {
+          transaction: tx
+        },
+        {
+          onSuccess: (result) => {
+            console.log('Transaction success:', result);
+            setIsSwapping(false);
+          },
+          onError: (error) => {
+            console.log('Transaction Error:', error);
+            setIsSwapping(false);
+          }
+        }
+      );
+      
+      // toast({
+      //   title: 'Swap successful!',
+      //   description: `Transaction hash: ${response.digest}`,
+      //   status: 'success',
+      //   duration: 5000,
+      // });
 
-      updateBalance();
+      // Refresh balances and pool data
+      // await Promise.all([updateBalance(), refreshReserves()]);
+      // setIsSwapping(false);
     } catch (error: any) {
       console.error('Swap error:', error);
       toast({
@@ -120,7 +154,6 @@ export function SwapInterface() {
         status: 'error',
         duration: 5000,
       });
-    } finally {
       setIsSwapping(false);
     }
   };
@@ -236,32 +269,17 @@ export function SwapInterface() {
         </Box>
 
         <Box width="100%">
-          {!currentAccount ? (
-            <ConnectButton 
-              className="connect-button"
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '1.1em',
-                backgroundColor: '#3182ce',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            />
-          ) : (
-            <Button
-              width="100%"
-              colorScheme="blue"
-              size="lg"
-              onClick={handleSwap}
-              isLoading={isSwapping}
-              loadingText="Swapping..."
-            >
-              Swap
-            </Button>
-          )}
+          <Button
+            width="100%"
+            colorScheme="blue"
+            size="lg"
+            onClick={handleSwap}
+            isLoading={isSwapping}
+            loadingText="Swapping..."
+            isDisabled={!currentAccount}
+          >
+            {!currentAccount ? 'Connect Wallet to Swap' : 'Swap'}
+          </Button>
         </Box>
       </VStack>
     </Box>

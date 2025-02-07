@@ -1,7 +1,8 @@
-import { TransactionBlock } from '@mysten/sui.js/transactions';
-import { SuiClient, getFullnodeUrl } from '@mysten/sui.js/client';
-import { fromB64 } from '@mysten/sui.js/utils';
-import { Ed25519Keypair } from '@mysten/sui.js/keypairs/ed25519';
+// import { TransactionBlock } from '@mysten/sui.js/transactions';
+import { Transaction } from '@mysten/sui/transactions';
+import { SuiClient, getFullnodeUrl } from '@mysten/sui/client';
+import { fromB64 } from '@mysten/sui/utils';
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -82,7 +83,8 @@ async function main() {
     console.log('Starting pool initialization...');
 
     // First, mint AIXCOM tokens
-    const mintTx = new TransactionBlock();
+    // const mintTx = new TransactionBlock();
+    const mintTx = new Transaction();
     const mintAmount = 1000 * Math.pow(10, Number(VITE_TOKEN_DECIMALS)); // Mint 1000 AIXCOM tokens
 
     console.log('Minting AIXCOM tokens...');
@@ -90,15 +92,15 @@ async function main() {
       target: `${VITE_AIXCOM_PACKAGE_ID}::aixcom::mint`,
       arguments: [
         mintTx.object(VITE_AIXCOM_TREASURY_CAP!),
-        mintTx.pure(mintAmount),
-        mintTx.pure(keypair.toSuiAddress()),
+        mintTx.pure.u64(mintAmount),
+        mintTx.pure.address(keypair.toSuiAddress()),
       ],
     });
 
     // Execute mint transaction
-    const mintResult = await client.signAndExecuteTransactionBlock({
+    const mintResult = await client.signAndExecuteTransaction({
       signer: keypair,
-      transactionBlock: mintTx,
+      transaction: mintTx,
       options: {
         showEffects: true,
         showEvents: true,
@@ -138,11 +140,12 @@ async function main() {
     console.log('Pool ID:', VITE_SWAP_POOL_ID);
 
     // Now add liquidity
-    const liquidityTx = new TransactionBlock();
+    // const liquidityTx = new TransactionBlock();
+    const liquidityTx = new Transaction();
     const suiAmount = 0.1 * 1e9; // 0.1 SUI
     console.log('SUI amount for liquidity:', suiAmount);
 
-    const [suiCoin] = liquidityTx.splitCoins(liquidityTx.gas, [liquidityTx.pure(suiAmount)]);
+    const [suiCoin] = liquidityTx.splitCoins(liquidityTx.gas, [liquidityTx.pure.u64(suiAmount)]);
 
     console.log('Adding initial liquidity to pool...');
     liquidityTx.moveCall({
@@ -157,9 +160,9 @@ async function main() {
     console.log('Transaction prepared, executing...');
 
     // Execute liquidity transaction
-    const result = await client.signAndExecuteTransactionBlock({
+    const result = await client.signAndExecuteTransaction({
       signer: keypair,
-      transactionBlock: liquidityTx,
+      transaction: liquidityTx,
       options: {
         showEffects: true,
         showEvents: true,
