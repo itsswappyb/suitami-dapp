@@ -5,8 +5,12 @@ const Registration = require('../models/Registration');
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// CORS configuration
+app.use(cors({
+  origin: '*', // Be more restrictive in production
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
 app.use(express.json());
 
 // MongoDB connection
