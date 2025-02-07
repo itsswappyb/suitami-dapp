@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSuiClient } from '@mysten/dapp-kit';
-import { AIXCOM_PACKAGE_ID, SWAP_POOL_ID, TOKEN_DECIMALS } from '../constants/token';
+import { SWAP_POOL_ID, TOKEN_DECIMALS } from '../constants/token';
 
 interface PoolReserves {
   suiReserve: number;

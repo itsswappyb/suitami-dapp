@@ -25,7 +25,7 @@ interface RegisterModalProps {
 export function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
   const [telegramHandle, setTelegramHandle] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isRegistered, setIsRegistered] = useState(false);
+
   const currentAccount = useCurrentAccount();
   const toast = useToast();
 
@@ -36,10 +36,8 @@ export function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
       try {
         const registration = await getRegistration(currentAccount.address);
         if (registration) {
-          setIsRegistered(true);
           setTelegramHandle(registration.telegramHandle);
         } else {
-          setIsRegistered(false);
           setTelegramHandle('');
         }
       } catch (error) {
@@ -87,7 +85,6 @@ export function RegisterModal({ isOpen, onClose }: RegisterModalProps) {
     setIsLoading(true);
     try {
       await registerWallet(currentAccount.address, telegramHandle);
-      setIsRegistered(true);
 
       toast({
         title: 'Success',

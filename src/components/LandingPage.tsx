@@ -8,39 +8,15 @@ import {
   Icon,
   Image,
   Button,
-  Link,
-  useColorModeValue,
-  Flex,
+  Link
 } from '@chakra-ui/react';
 import { FiTwitter } from 'react-icons/fi';
 import { ConnectButton, useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
 import { SwapModal } from './SwapModal';
 import { RegisterModal } from './RegisterModal';
-import { TelegramRegistration } from './TelegramRegistration';
 import { useState, useEffect } from 'react';
-import { checkAixcomBalance, getAixcomBalance } from '../utils/tokenUtils';
+import { getAixcomBalance } from '../utils/tokenUtils';
 import { getRegistrationCount } from '../services/registrationService';
-
-const Feature = ({ icon, title, text }: { icon: any; title: string; text: string }) => {
-  return (
-    <VStack
-      align="start"
-      bg="whiteAlpha.100"
-      p={6}
-      borderRadius="xl"
-      backdropFilter="blur(10px)"
-      border="1px solid"
-      borderColor="whiteAlpha.200"
-      flex={1}
-    >
-      <Icon as={icon} w={6} h={6} color="blue.400" />
-      <Text fontWeight="bold" fontSize="xl" color="white">
-        {title}
-      </Text>
-      <Text color="whiteAlpha.800">{text}</Text>
-    </VStack>
-  );
-};
 
 export function LandingPage() {
   const currentAccount = useCurrentAccount();

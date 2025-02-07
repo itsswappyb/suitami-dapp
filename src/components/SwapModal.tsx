@@ -43,31 +43,9 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
     try {
       const tx = createSwapTransaction(currentAccount.address);
       
-      // const result = await signAndExecute({
-      //   transaction,
-      //   options: {
-      //     showEffects: true,
-      //     showEvents: true,
-      //   },
-      // });
-
-      // console.log('Transaction result:', result);
-      
-      // toast({
-      //   title: 'Success',
-      //   description: 'Successfully purchased AIXCOM tokens!',
-      //   status: 'success',
-      //   duration: 3000,
-      //   isClosable: true,
-      // });
-      // onClose();
       signAndExecuteTransaction(
         {
           transaction: tx,
-          options: {
-            showEffects: true,
-            showEvents: true,
-          },
         },
         {
           onSuccess: async (result) => {

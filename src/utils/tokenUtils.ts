@@ -1,5 +1,4 @@
-import { SuiClient } from '@mysten/sui.js/client';
-import { MIST_PER_SUI } from '@mysten/sui.js/utils';
+type SuiClient = any;
 
 const AIXCOM_DECIMALS = 9;
 const MIN_REQUIRED_TOKENS = 10;
@@ -17,7 +16,7 @@ export async function getAixcomBalance(
     });
 
     const totalBalance = coins.reduce(
-      (sum, coin) => sum + BigInt(coin.balance),
+      (sum: any, coin: any) => sum + BigInt(coin.balance),
       BigInt(0)
     );
 
@@ -44,7 +43,7 @@ export async function checkAixcomBalance(
     });
 
     const totalBalance = coins.reduce(
-      (sum, coin) => sum + BigInt(coin.balance),
+      (sum: any, coin: any) => sum + BigInt(coin.balance),
       BigInt(0)
     );
 

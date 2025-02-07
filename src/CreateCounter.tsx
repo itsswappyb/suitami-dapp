@@ -1,5 +1,5 @@
 import { Transaction } from "@mysten/sui/transactions";
-import { Button, Container } from "@radix-ui/themes";
+import { Button, Container } from "@chakra-ui/react";
 import { useSignAndExecuteTransaction, useSuiClient } from "@mysten/dapp-kit";
 import { useNetworkVariable } from "./networkConfig";
 import ClipLoader from "react-spinners/ClipLoader";
@@ -18,7 +18,7 @@ export function CreateCounter({
   } = useSignAndExecuteTransaction();
 
   function create() {
-    const tx = new Transaction();
+    const tx = new Transaction() as any;
 
     tx.moveCall({
       arguments: [],

@@ -4,9 +4,9 @@ import {
   useSuiClient,
   useSuiClientQuery,
 } from "@mysten/dapp-kit";
-import type { SuiObjectData } from "@mysten/sui/client";
+type SuiObjectData = any;
 import { Transaction } from "@mysten/sui/transactions";
-import { Button, Flex, Heading, Text } from "@radix-ui/themes";
+import { Button, Flex, Heading, Text } from "@chakra-ui/react";
 import { useNetworkVariable } from "./networkConfig";
 import { useState } from "react";
 import ClipLoader from "react-spinners/ClipLoader";
@@ -29,7 +29,7 @@ export function Counter({ id }: { id: string }) {
   const executeMoveCall = (method: "increment" | "reset") => {
     setWaitingForTxn(method);
 
-    const tx = new Transaction();
+    const tx = new Transaction() as any;
 
     if (method === "reset") {
       tx.moveCall({

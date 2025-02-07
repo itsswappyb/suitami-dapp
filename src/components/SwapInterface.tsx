@@ -14,7 +14,6 @@ import {
   StatLabel,
   StatNumber,
   StatGroup,
-  Divider,
   HStack,
   Tooltip,
   IconButton,
@@ -22,7 +21,7 @@ import {
 } from '@chakra-ui/react';
 import { RepeatIcon } from '@chakra-ui/icons';
 import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from '@mysten/dapp-kit';
-import { AIXCOM_PACKAGE_ID, TOKEN_DECIMALS, TOKENS_PER_SUI, SWAP_POOL_ID } from '../constants/token';
+import { AIXCOM_PACKAGE_ID, TOKEN_DECIMALS, SWAP_POOL_ID } from '../constants/token';
 import { useSwapPool } from '../hooks/useSwapPool';
 
 export function SwapInterface() {
@@ -37,7 +36,7 @@ export function SwapInterface() {
   const [isSwapping, setIsSwapping] = useState(false);
   // Always using fixed rate swap
   const isFixedRateSwap = true;
-  const [slippage, setSlippage] = useState(0.5); // 0.5% slippage tolerance
+  const [slippage] = useState(0.5); // 0.5% slippage tolerance
   const [priceImpact, setPriceImpact] = useState(0);
   const toast = useToast();
 
@@ -78,7 +77,7 @@ export function SwapInterface() {
     try {
       setIsSwapping(true);
 
-      const tx = new Transaction();
+      const tx = new Transaction() as any;
       
       // Fixed amounts: 0.01 SUI for 10 AIXCOM
       const FIXED_SUI_AMOUNT = 10_000_000; // 0.01 SUI in Mist
@@ -98,11 +97,7 @@ export function SwapInterface() {
 
       signAndExecuteTransaction(
         {
-          transaction: tx,
-          options: {
-            showEffects: true,
-            showEvents: true,
-          }
+          transaction: tx
         },
         {
           onSuccess: async (result) => {
@@ -146,7 +141,7 @@ export function SwapInterface() {
       );
 
       // Create transaction block
-      const tx = new Transaction();
+      const tx = new Transaction() as any;
       console.log('tx.gas', tx.gas);
       
       // Split SUI from gas coin
@@ -176,11 +171,7 @@ export function SwapInterface() {
 
       signAndExecuteTransaction(
         {
-          transaction: tx,
-          options: {
-            showEffects: true,
-            showEvents: true,
-          },
+          transaction: tx
         },
         {
           onSuccess: async (result) => {
