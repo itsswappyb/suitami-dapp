@@ -32,9 +32,11 @@ export function SwapInterface() {
   const { reserves, isLoading: isLoadingPool, calculateSuiToAixcom, refreshReserves } = useSwapPool();
   
   const [suiAmount, setSuiAmount] = useState('0.01');
-  const [aixcomAmount, setAixcomAmount] = useState('1000');
+  const [aixcomAmount, setAixcomAmount] = useState('10');
   const [balance, setBalance] = useState({ sui: '0', aixcom: '0' });
   const [isSwapping, setIsSwapping] = useState(false);
+  // Always using fixed rate swap
+  const isFixedRateSwap = true;
   const [slippage, setSlippage] = useState(0.5); // 0.5% slippage tolerance
   const [priceImpact, setPriceImpact] = useState(0);
   const toast = useToast();
@@ -70,7 +72,59 @@ export function SwapInterface() {
     }
   }, [currentAccount?.address]);
 
-  const handleSwap = async () => {
+  const handleFixedRateSwap = async () => {
+    if (!currentAccount || !signAndExecuteTransaction) return;
+
+    try {
+      setIsSwapping(true);
+
+      const tx = new Transaction();
+      
+      // Fixed amounts: 0.01 SUI for 10 AIXCOM
+      const FIXED_SUI_AMOUNT = 10_000_000; // 0.01 SUI in Mist
+
+      // Split SUI from gas coin
+      const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(FIXED_SUI_AMOUNT)]);
+
+      // Add swap call
+      tx.moveCall({
+        target: `${AIXCOM_PACKAGE_ID}::swap::swap_sui_fixed_rate`,
+        arguments: [
+          tx.object(SWAP_POOL_ID),
+          coin,
+          tx.pure.address(currentAccount.address)
+        ]
+      });
+
+      signAndExecuteTransaction(
+        {
+          transaction: tx,
+          options: {
+            showEffects: true,
+            showEvents: true,
+          }
+        },
+        {
+          onSuccess: async (result) => {
+            console.log('Transaction success:', result);
+            setIsSwapping(false);
+            // Refresh balances after swap
+            // updateBalance();
+            await Promise.all([updateBalance(), refreshReserves()]);
+          },
+          onError: (error) => {
+            console.log('Transaction Error:', error);
+            setIsSwapping(false);
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error during swap:', error);
+      setIsSwapping(false);
+    }
+  };
+
+  const handleVariableRateSwap = async () => {
     if (!currentAccount?.address) {
       toast({
         title: 'Please connect your wallet',
@@ -122,11 +176,16 @@ export function SwapInterface() {
 
       signAndExecuteTransaction(
         {
-          transaction: tx
+          transaction: tx,
+          options: {
+            showEffects: true,
+            showEvents: true,
+          },
         },
         {
-          onSuccess: (result) => {
+          onSuccess: async (result) => {
             console.log('Transaction success:', result);
+            await Promise.all([updateBalance(), refreshReserves()]);
             setIsSwapping(false);
           },
           onError: (error) => {
@@ -184,7 +243,7 @@ export function SwapInterface() {
       borderColor="whiteAlpha.300"
     >
       <VStack spacing={6}>
-        <Heading size="lg" color="white">Swap SUI for AIXCOM</Heading>
+        <Heading size="lg" color="white">Fixed Rate Swap</Heading>
         
         <StatGroup width="100%" bg="whiteAlpha.100" p={4} borderRadius="xl">
           <Stat>
@@ -273,12 +332,12 @@ export function SwapInterface() {
             width="100%"
             colorScheme="blue"
             size="lg"
-            onClick={handleSwap}
+            onClick={isFixedRateSwap ? handleFixedRateSwap : handleVariableRateSwap}
             isLoading={isSwapping}
             loadingText="Swapping..."
             isDisabled={!currentAccount}
           >
-            {!currentAccount ? 'Connect Wallet to Swap' : 'Swap'}
+            {!currentAccount ? 'Connect Wallet to Swap' : 'Buy 10 AIXCOM for 0.01 SUI'}
           </Button>
         </Box>
       </VStack>

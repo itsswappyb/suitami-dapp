@@ -85,7 +85,7 @@ async function main() {
     // First, mint AIXCOM tokens
     // const mintTx = new TransactionBlock();
     const mintTx = new Transaction();
-    const mintAmount = 1000 * Math.pow(10, Number(VITE_TOKEN_DECIMALS)); // Mint 1000 AIXCOM tokens
+    const mintAmount = 100_000 * Math.pow(10, Number(VITE_TOKEN_DECIMALS)); // Mint 1,000,000 AIXCOM tokens
 
     console.log('Minting AIXCOM tokens...');
     mintTx.moveCall({
@@ -139,20 +139,15 @@ async function main() {
     console.log('Minted coin verified:', mintedCoinId);
     console.log('Pool ID:', VITE_SWAP_POOL_ID);
 
-    // Now add liquidity
+    // Now add AIXCOM liquidity only
     // const liquidityTx = new TransactionBlock();
     const liquidityTx = new Transaction();
-    const suiAmount = 0.1 * 1e9; // 0.1 SUI
-    console.log('SUI amount for liquidity:', suiAmount);
 
-    const [suiCoin] = liquidityTx.splitCoins(liquidityTx.gas, [liquidityTx.pure.u64(suiAmount)]);
-
-    console.log('Adding initial liquidity to pool...');
+    console.log('Adding initial AIXCOM liquidity to pool...');
     liquidityTx.moveCall({
-      target: `${VITE_AIXCOM_PACKAGE_ID}::swap::add_liquidity`,
+      target: `${VITE_AIXCOM_PACKAGE_ID}::swap::add_aixcom_liquidity`,
       arguments: [
         liquidityTx.object(VITE_SWAP_POOL_ID!),
-        suiCoin,
         liquidityTx.object(mintedCoinId),
       ],
     });

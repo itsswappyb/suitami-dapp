@@ -14,6 +14,13 @@ module aixcom::swap {
     const EInsufficientOutputAmount: u64 = 2;
     const EInsufficientInputAmount: u64 = 3;
     const EInvalidZeroAmount: u64 = 4;
+    const EInvalidFixedAmount: u64 = 5;
+    const EInsufficientLPTokens: u64 = 6;
+    const EInsufficientSUIReserve: u64 = 7;
+    
+    /// Fixed rate constants (0.01 SUI = 10 AIXCOM)
+    const FIXED_RATE_SUI_AMOUNT: u64 = 10_000_000; // 0.01 SUI in Mist
+    const FIXED_RATE_AIXCOM_AMOUNT: u64 = 10_000_000_000; // 10 AIXCOM with 9 decimals
 
     /// The Pool object that holds both SUI and AIXCOM tokens
     struct Pool has key {
@@ -44,24 +51,62 @@ module aixcom::swap {
         transfer::share_object(pool);
     }
 
-    /// Add liquidity to the pool
-    public entry fun add_liquidity(
+    /// Add SUI liquidity to the pool
+    public entry fun add_sui_liquidity(
         pool: &mut Pool,
         sui_amount: Coin<SUI>,
-        aixcom_amount: Coin<AIXCOM>,
         ctx: &mut TxContext
     ) {
         let sui_value = coin::value(&sui_amount);
-        let aixcom_value = coin::value(&aixcom_amount);
+        assert!(sui_value > 0, EInvalidZeroAmount);
 
-        assert!(sui_value > 0 && aixcom_value > 0, EInvalidZeroAmount);
-
-        // Transfer tokens to pool
+        // Transfer SUI to pool
         balance::join(&mut pool.sui_reserve, coin::into_balance(sui_amount));
-        balance::join(&mut pool.aixcom_reserve, coin::into_balance(aixcom_amount));
+    }
 
-        // Mint LP tokens (simplified version)
-        pool.lp_supply = pool.lp_supply + (sui_value as u64);
+    /// Add AIXCOM liquidity to the pool
+    public entry fun add_aixcom_liquidity(
+        pool: &mut Pool,
+        aixcom_amount: Coin<AIXCOM>,
+        ctx: &mut TxContext
+    ) {
+        let aixcom_value = coin::value(&aixcom_amount);
+        assert!(aixcom_value > 0, EInvalidZeroAmount);
+
+        // Transfer AIXCOM to pool
+        balance::join(&mut pool.aixcom_reserve, coin::into_balance(aixcom_amount));
+    }
+
+    /// Remove SUI liquidity from the pool
+    public entry fun remove_sui_liquidity(
+        pool: &mut Pool,
+        sui_amount: u64,
+        recipient: address,
+        ctx: &mut TxContext
+    ) {
+        // Verify pool has enough SUI
+        let sui_reserve = balance::value(&pool.sui_reserve);
+        assert!(sui_amount > 0 && sui_amount <= sui_reserve, EInsufficientSUIReserve);
+        
+        // Transfer SUI to recipient
+        let sui_out = coin::take(&mut pool.sui_reserve, sui_amount, ctx);
+        transfer::public_transfer(sui_out, recipient);
+    }
+
+    /// Remove AIXCOM liquidity from the pool
+    public entry fun remove_aixcom_liquidity(
+        pool: &mut Pool,
+        aixcom_amount: u64,
+        recipient: address,
+        ctx: &mut TxContext
+    ) {
+        // Verify pool has enough AIXCOM
+        let aixcom_reserve = balance::value(&pool.aixcom_reserve);
+        assert!(aixcom_amount > 0 && aixcom_amount <= aixcom_reserve, EInsufficientLiquidity);
+        
+        // Transfer AIXCOM to recipient
+        let aixcom_out = coin::take(&mut pool.aixcom_reserve, aixcom_amount, ctx);
+        transfer::public_transfer(aixcom_out, recipient);
     }
 
     /// Swap SUI for AIXCOM tokens
@@ -148,5 +193,41 @@ module aixcom::swap {
 
     public fun get_lp_supply(pool: &Pool): u64 {
         pool.lp_supply
+    }
+
+
+
+
+
+    /// Swap a fixed amount of SUI for AIXCOM at a fixed rate
+    /// Rate: 0.01 SUI = 10 AIXCOM
+    public entry fun swap_sui_fixed_rate(
+        pool: &mut Pool,
+        sui_in: Coin<SUI>,
+        recipient: address,
+        ctx: &mut TxContext
+    ) {
+        let sui_amount = coin::value(&sui_in);
+        
+        // Verify the input amount matches our fixed rate
+        assert!(sui_amount == FIXED_RATE_SUI_AMOUNT, EInvalidFixedAmount);
+        
+        // Verify pool has enough AIXCOM
+        let aixcom_reserve = balance::value(&pool.aixcom_reserve);
+        assert!(aixcom_reserve >= FIXED_RATE_AIXCOM_AMOUNT, EInsufficientLiquidity);
+        
+        // Update reserves
+        balance::join(&mut pool.sui_reserve, coin::into_balance(sui_in));
+        
+        // Transfer AIXCOM tokens to recipient
+        let aixcom_out_coin = coin::take(&mut pool.aixcom_reserve, FIXED_RATE_AIXCOM_AMOUNT, ctx);
+        transfer::public_transfer(aixcom_out_coin, recipient);
+        
+        // Emit swap event
+        event::emit(SwapEvent {
+            sui_amount,
+            aixcom_amount: FIXED_RATE_AIXCOM_AMOUNT,
+            sui_to_aixcom: true
+        });
     }
 }

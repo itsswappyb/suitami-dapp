@@ -115,7 +115,7 @@ export function LandingPage() {
               </Box>
               <Box textAlign="center">
                 <Text color="whiteAlpha.700">Exchange Rate</Text>
-                <Text color="white" fontSize="lg" fontWeight="bold">1000 AIXCOM / 0.01 SUI</Text>
+                <Text color="white" fontSize="lg" fontWeight="bold">10 AIXCOM / 0.01 SUI</Text>
               </Box>
             </HStack>
           </VStack>

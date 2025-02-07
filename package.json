@@ -8,8 +8,11 @@
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "initialize-pool": "tsx scripts/initialize-pool.ts",
-    "check-pool": "tsx scripts/check-pool-balance.ts"
+    "add-aixcom-liquidity": "tsx scripts/initialize-pool.ts",
+    "check-pool": "tsx scripts/check-pool-balance.ts",
+    "remove-liquidity": "tsx scripts/remove-liquidity.ts",
+    "remove-sui-liquidity": "tsx scripts/remove-sui-liquidity.ts",
+    "add-sui-liquidity": "tsx scripts/add-sui-liquidity.ts"
   },
   "dependencies": {
     "@chakra-ui/icons": "^2.1.1",
