@@ -1,8 +1,9 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const Registration = require('./models/Registration');
+require("dotenv").config();
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const Registration = require("./models/Registration");
+const pineconeRoutes = require("./api/pinecone");
 
 const app = express();
 
@@ -11,51 +12,64 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 // Routes
-app.post('/api/register', async (req, res) => {
+app.use("/api/pinecone", pineconeRoutes);
+
+app.post("/api/register", async (req, res) => {
   try {
     const { walletAddress, telegramHandle } = req.body;
 
     // Validate input
     if (!walletAddress || !telegramHandle) {
-      return res.status(400).json({ error: 'Wallet address and Telegram handle are required' });
+      return res
+        .status(400)
+        .json({ error: "Wallet address and Telegram handle are required" });
     }
 
-    if (!telegramHandle.startsWith('@')) {
-      return res.status(400).json({ error: 'Telegram handle must start with @' });
+    if (!telegramHandle.startsWith("@")) {
+      return res
+        .status(400)
+        .json({ error: "Telegram handle must start with @" });
     }
 
     // Check for existing registrations
     const existingWallet = await Registration.findOne({ walletAddress });
     if (existingWallet) {
-      return res.status(400).json({ error: 'Wallet address already registered' });
+      return res
+        .status(400)
+        .json({ error: "Wallet address already registered" });
     }
 
     const existingTelegram = await Registration.findOne({ telegramHandle });
     if (existingTelegram) {
-      return res.status(400).json({ error: 'Telegram handle already registered' });
+      return res
+        .status(400)
+        .json({ error: "Telegram handle already registered" });
     }
 
     // Create new registration
     const registration = new Registration({
       walletAddress,
-      telegramHandle
+      telegramHandle,
     });
 
     await registration.save();
-    res.status(201).json({ message: 'Registration successful', data: registration });
+    res
+      .status(201)
+      .json({ message: "Registration successful", data: registration });
   } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Registration error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 // Get all registrations with optional pagination
-app.get('/api/registrations', async (req, res) => {
+app.get("/api/registrations", async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100;
@@ -67,7 +81,7 @@ app.get('/api/registrations', async (req, res) => {
         .skip(skip)
         .limit(limit)
         .lean(),
-      Registration.countDocuments()
+      Registration.countDocuments(),
     ]);
 
     res.json({
@@ -76,41 +90,41 @@ app.get('/api/registrations', async (req, res) => {
         currentPage: page,
         totalPages: Math.ceil(total / limit),
         totalItems: total,
-        itemsPerPage: limit
-      }
+        itemsPerPage: limit,
+      },
     });
   } catch (error) {
-    console.error('Fetch registrations error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Fetch registrations error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 // Get total number of registrations
-app.get('/api/registrations/count', async (req, res) => {
+app.get("/api/registrations/count", async (req, res) => {
   try {
     const count = await Registration.countDocuments();
     res.json({ count });
   } catch (error) {
-    console.error('Count error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Count error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 // Get registration by wallet address
-app.get('/api/registration/:walletAddress', async (req, res) => {
+app.get("/api/registration/:walletAddress", async (req, res) => {
   try {
-    const registration = await Registration.findOne({ 
-      walletAddress: req.params.walletAddress.toLowerCase() 
+    const registration = await Registration.findOne({
+      walletAddress: req.params.walletAddress.toLowerCase(),
     });
-    
+
     if (!registration) {
-      return res.status(404).json({ error: 'Registration not found' });
+      return res.status(404).json({ error: "Registration not found" });
     }
-    
+
     res.json(registration);
   } catch (error) {
-    console.error('Fetch error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Fetch error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
