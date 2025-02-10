@@ -15,6 +15,60 @@ const upload = multer({
   }
 });
 
+// Helper function to create an assistant
+async function createAssistant(walletAddress, name) {
+  try {
+    const response = await axios.post(
+      "https://api.pinecone.io/assistant/assistants",
+      {
+        name,
+        instructions: "You are a helpful assistant that answers questions based on the provided knowledge base.",
+        region: "us",
+      },
+      {
+        headers: {
+          "Api-Key": process.env.PINECONE_API_KEY,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const assistant = new Assistant({
+      pineconeAssistantId: response.data.id,
+      name,
+      instructions: "You are a helpful assistant that answers questions based on the provided knowledge base.",
+      region: "us",
+      createdBy: walletAddress.toLowerCase()
+    });
+
+    await assistant.save();
+    return assistant;
+  } catch (error) {
+    console.error("Error creating assistant:", error.response?.data || error.message);
+    throw error;
+  }
+}
+
+// Helper function to upload file to assistant
+async function uploadFileToPinecone(assistant, uploadedFile) {
+  const formData = new FormData();
+  formData.append('file', fs.createReadStream(uploadedFile.path), {
+    filename: uploadedFile.originalname,
+    contentType: uploadedFile.mimetype
+  });
+
+  return axios.post(
+    `https://prod-1-data.ke.pinecone.io/assistant/files/${assistant.pineconeAssistantId}`,
+    formData,
+    {
+      headers: {
+        "Api-Key": process.env.PINECONE_API_KEY,
+        ...formData.getHeaders()
+      },
+    }
+  );
+}
+
 // Get all assistants for a user
 router.get("/assistants/:walletAddress", async (req, res) => {
   try {
@@ -214,6 +268,88 @@ router.get("/assistants/:assistantId/files", async (req, res) => {
     console.error("Error fetching files:", error);
     res.status(500).json({
       error: "Failed to fetch files"
+    });
+  }
+});
+
+// Upload file to user's knowledge base
+router.post("/knowledge-base/upload", upload.single('file'), async (req, res) => {
+  try {
+    const { walletAddress } = req.body;
+    const uploadedFile = req.file;
+
+    if (!walletAddress) {
+      // Clean up uploaded file
+      fs.unlinkSync(uploadedFile.path);
+      return res.status(400).json({ error: "Wallet address is required" });
+    }
+
+    if (!uploadedFile) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Find or create assistant for this user
+    let assistant = await Assistant.findOne({ 
+      createdBy: walletAddress.toLowerCase(),
+      isActive: true
+    });
+
+    if (!assistant) {
+      // Create a new assistant for this user
+      try {
+        assistant = await createAssistant(
+          walletAddress,
+          `${walletAddress.slice(0, 6)}'s Knowledge Base`
+        );
+      } catch (error) {
+        // Clean up uploaded file
+        fs.unlinkSync(uploadedFile.path);
+        throw error;
+      }
+    }
+
+    // Upload file to Pinecone
+    const pineconeResponse = await uploadFileToPinecone(assistant, uploadedFile);
+
+    // Create file record in database
+    const file = new File({
+      pineconeFileId: pineconeResponse.data.id,
+      name: uploadedFile.originalname,
+      assistantId: assistant._id,
+      status: pineconeResponse.data.status,
+      percentDone: pineconeResponse.data.percent_done,
+      signedUrl: pineconeResponse.data.signed_url,
+      errorMessage: pineconeResponse.data.error_message,
+      metadata: pineconeResponse.data.metadata,
+      createdBy: walletAddress.toLowerCase()
+    });
+
+    await file.save();
+
+    // Clean up uploaded file
+    fs.unlinkSync(uploadedFile.path);
+
+    res.status(201).json({
+      message: "File uploaded successfully to knowledge base",
+      file: {
+        ...pineconeResponse.data,
+        _id: file._id
+      },
+      assistant: {
+        _id: assistant._id,
+        name: assistant.name,
+        pineconeAssistantId: assistant.pineconeAssistantId
+      }
+    });
+  } catch (error) {
+    // Clean up uploaded file if it exists
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    console.error("Error uploading file to knowledge base:", error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data || "Failed to upload file to knowledge base"
     });
   }
 });
