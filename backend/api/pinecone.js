@@ -354,6 +354,45 @@ router.post("/knowledge-base/upload", upload.single('file'), async (req, res) =>
   }
 });
 
+// Get file status
+router.get("/files/:fileId/status", async (req, res) => {
+  try {
+    const { fileId } = req.params;
+
+    const file = await File.findById(fileId);
+    if (!file) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    // Get status from Pinecone
+    const pineconeResponse = await axios.get(
+      `https://prod-1-data.ke.pinecone.io/assistant/files/${file.pineconeFileId}`,
+      {
+        headers: {
+          "Api-Key": process.env.PINECONE_API_KEY,
+        },
+      }
+    );
+
+    // Update file status in our database
+    file.status = pineconeResponse.data.status;
+    file.percentDone = pineconeResponse.data.percent_done;
+    file.errorMessage = pineconeResponse.data.error_message;
+    await file.save();
+
+    res.json({
+      status: file.status,
+      percent_done: file.percentDone,
+      error_message: file.errorMessage
+    });
+  } catch (error) {
+    console.error("Error getting file status:", error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: "Failed to get file status"
+    });
+  }
+});
+
 // Deactivate an assistant
 router.delete("/assistants/:assistantId", async (req, res) => {
   try {
