@@ -11,7 +11,7 @@ import {
   Link
 } from '@chakra-ui/react';
 import { FiTwitter } from 'react-icons/fi';
-import { ConnectButton, useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
+import { useCurrentAccount, useSuiClient } from '@mysten/dapp-kit';
 import { SwapModal } from './SwapModal';
 import { RegisterModal } from './RegisterModal';
 import { useState, useEffect } from 'react';
@@ -89,9 +89,6 @@ export function LandingPage() {
         }
       }}
     >
-      <Box position="absolute" top={4} right={4}>
-        <ConnectButton />
-      </Box>
       <Container maxW="container.xl" pt={10} pb={10}>
         <VStack spacing={8} align="center">
           {/* Logo */}
