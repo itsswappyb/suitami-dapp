@@ -1,7 +1,19 @@
 const express = require("express");
 const router = express.Router();
 const axios = require("axios");
+const multer = require("multer");
+const FormData = require("form-data");
+const fs = require("fs");
 const Assistant = require("../models/Assistant");
+const File = require("../models/File");
+
+// Configure multer for file upload
+const upload = multer({ 
+  dest: 'uploads/',
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit
+  }
+});
 
 // Get all assistants for a user
 router.get("/assistants/:walletAddress", async (req, res) => {
@@ -79,6 +91,129 @@ router.post("/assistants", async (req, res) => {
     );
     res.status(error.response?.status || 500).json({
       error: error.response?.data || "Failed to create Pinecone assistant",
+    });
+  }
+});
+
+// Upload file to assistant
+router.post("/assistants/:assistantId/files", upload.single('file'), async (req, res) => {
+  try {
+    const { assistantId } = req.params;
+    const { walletAddress } = req.body;
+    const uploadedFile = req.file;
+
+    if (!walletAddress) {
+      // Clean up uploaded file
+      fs.unlinkSync(uploadedFile.path);
+      return res.status(400).json({ error: "Wallet address is required" });
+    }
+
+    if (!uploadedFile) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Find the assistant
+    const assistant = await Assistant.findOne({ 
+      _id: assistantId,
+      createdBy: walletAddress.toLowerCase(),
+      isActive: true
+    });
+
+    if (!assistant) {
+      // Clean up uploaded file
+      fs.unlinkSync(uploadedFile.path);
+      return res.status(404).json({ error: "Assistant not found" });
+    }
+
+    // Create form data
+    const formData = new FormData();
+    formData.append('file', fs.createReadStream(uploadedFile.path), {
+      filename: uploadedFile.originalname,
+      contentType: uploadedFile.mimetype
+    });
+
+    // Upload to Pinecone
+    const pineconeResponse = await axios.post(
+      `https://prod-1-data.ke.pinecone.io/assistant/files/${assistant.pineconeAssistantId}`,
+      formData,
+      {
+        headers: {
+          "Api-Key": process.env.PINECONE_API_KEY,
+          ...formData.getHeaders()
+        },
+      }
+    );
+
+    // Create file record in database
+    const file = new File({
+      pineconeFileId: pineconeResponse.data.id,
+      name: uploadedFile.originalname,
+      assistantId: assistant._id,
+      status: pineconeResponse.data.status,
+      percentDone: pineconeResponse.data.percent_done,
+      signedUrl: pineconeResponse.data.signed_url,
+      errorMessage: pineconeResponse.data.error_message,
+      metadata: pineconeResponse.data.metadata,
+      createdBy: walletAddress.toLowerCase()
+    });
+
+    await file.save();
+
+    // Clean up uploaded file
+    fs.unlinkSync(uploadedFile.path);
+
+    res.status(201).json({
+      message: "File uploaded successfully",
+      file: {
+        ...pineconeResponse.data,
+        _id: file._id
+      }
+    });
+  } catch (error) {
+    // Clean up uploaded file if it exists
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    console.error("Error uploading file:", error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: error.response?.data || "Failed to upload file"
+    });
+  }
+});
+
+// Get all files for an assistant
+router.get("/assistants/:assistantId/files", async (req, res) => {
+  try {
+    const { assistantId } = req.params;
+    const { walletAddress } = req.query;
+
+    if (!walletAddress) {
+      return res.status(400).json({ error: "Wallet address is required" });
+    }
+
+    // Verify assistant ownership
+    const assistant = await Assistant.findOne({ 
+      _id: assistantId,
+      createdBy: walletAddress.toLowerCase(),
+      isActive: true
+    });
+
+    if (!assistant) {
+      return res.status(404).json({ error: "Assistant not found" });
+    }
+
+    // Get all files for this assistant
+    const files = await File.find({ 
+      assistantId: assistant._id,
+      createdBy: walletAddress.toLowerCase()
+    }).sort({ createdAt: -1 });
+
+    res.json(files);
+  } catch (error) {
+    console.error("Error fetching files:", error);
+    res.status(500).json({
+      error: "Failed to fetch files"
     });
   }
 });
